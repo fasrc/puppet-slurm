@@ -19,14 +19,14 @@ class slurm::controller::config {
     require => File[$slurm::shared_state_dir],
   }
 
-  file { 'SlurmConfNFSLocation':
-    ensure => 'directory',
-    path   => $slurm::slurm_conf_nfs_location,
-    owner  => 'root',
-    group  => 'root',
-    mode   => '0755',
-    require => File[$slurm::shared_state_dir],
-  }
+  #file { 'SlurmConfNFSLocation':
+  #  ensure => 'directory',
+  #  path   => $slurm::slurm_conf_nfs_location,
+  #  owner  => 'root',
+  #  group  => 'root',
+  #  mode   => '0755',
+  #  require => File[$slurm::shared_state_dir],
+  #}
 
   if $slurm::manage_slurm_conf {
 
@@ -38,7 +38,7 @@ class slurm::controller::config {
       owner   => 'root',
       group   => 'root',
       mode    => '0644',
-      require => File['SlurmConfNFSLocation'],
+      #require => File['SlurmConfNFSLocation'],
     }
 
     file { 'NFS slurm-partitions.conf':
@@ -49,7 +49,7 @@ class slurm::controller::config {
       owner   => 'root',
       group   => 'root',
       mode    => '0644',
-      require => File['SlurmConfNFSLocation'],
+      #require => File['SlurmConfNFSLocation'],
     }
 
     if $slurm::node_source {
@@ -60,7 +60,7 @@ class slurm::controller::config {
         owner  => 'root',
         group  => 'root',
         mode   => '0644',
-        require => File['SlurmConfNFSLocation'],
+        #require => File['SlurmConfNFSLocation'],
       }
     } else {
       datacat { 'slurm-nodes.conf':
@@ -70,7 +70,7 @@ class slurm::controller::config {
         owner    => 'root',
         group    => 'root',
         mode     => '0644',
-        require => File['SlurmConfNFSLocation'],
+        #require => File['SlurmConfNFSLocation'],
       }
 
       Datacat_fragment <<| tag == $slurm::slurm_nodelist_tag |>>
@@ -91,9 +91,9 @@ class slurm::controller::config {
     }
 
     file { 'Controller Link slurm-nodes.conf':
-      ensure => 'link',
-      path   => $slurm::node_conf_path,
-      target => "${slurm::slurm_conf_nfs_location}/nodes.conf",
+      ensure  => 'link',
+      path    => $slurm::node_conf_path,
+      target  => "${slurm::slurm_conf_nfs_location}/nodes.conf",
       require => File['slurm-nodes.conf'],
     }
 
@@ -189,14 +189,14 @@ class slurm::controller::config {
   if $::osfamily == 'RedHat' and $::operatingsystemmajrelease == '7' {
     include ::systemd
     augeas { 'slurmctld.service':
-      context => "$slurm::slurm_augeas_systemd_dir/slurmctld.service",
+      context => "${slurm::slurm_augeas_systemd_dir}/slurmctld.service",
       changes => [
-        "set Unit/ConditionPathExists/value $slurm::slurm_conf_path",
-        "set Service/PIDFile/value $slurm::pid_dir/slurmctld.pid",
+        "set Unit/ConditionPathExists/value ${slurm::slurm_conf_path}",
+        "set Service/PIDFile/value ${slurm::pid_dir}/slurmctld.pid",
       ],
       notify  => Service['slurmctld'],
-    } ~>
-    Exec['systemctl-daemon-reload']
+    }
+    ~> Exec['systemctl-daemon-reload']
   }
 
   if $slurm::manage_logrotate {
@@ -208,6 +208,7 @@ class slurm::controller::config {
       copytruncate  => false,
       delaycompress => false,
       ifempty       => false,
+      dateext       => true,
       rotate        => '10',
       sharedscripts => true,
       size          => '10M',
@@ -215,7 +216,8 @@ class slurm::controller::config {
       create_mode   => '0640',
       create_owner  => $slurm::slurm_user,
       create_group  => 'root',
-      postrotate    => $slurm::_logrotate_slurm_postrotate,
+      prerotate     => $slurm::_logrotate_slurm_prerotate,
+      postrotate    => $slurm::_logrotate_slurmctld_postrotate,
     }
   }
 

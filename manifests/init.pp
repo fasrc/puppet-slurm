@@ -44,6 +44,7 @@ class slurm (
   $manage_scripts                = true,
   $manage_firewall               = true,
   $manage_logrotate              = true,
+  $logrotate_slurm_prerotate     = undef,
   $logrotate_slurm_postrotate    = undef,
   $logrotate_slurmdbd_postrotate = undef,
   $use_syslog                    = false,
@@ -185,7 +186,10 @@ class slurm (
 ) inherits slurm::params {
 
   # Parameter validations
-  validate_bool($node, $controller, $slurmdbd, $client)
+  validate_bool($controller)
+  validate_bool($slurmdbd)
+  validate_bool($client)
+  validate_bool($node)
   validate_bool($manage_slurm_user, $manage_slurm_conf, $manage_scripts, $manage_firewall, $manage_logrotate, $use_syslog)
   validate_bool($install_pam, $install_torque_wrapper, $install_lua, $install_blcr)
   validate_bool($manage_state_dir_nfs_mount, $manage_job_checkpoint_dir_nfs_mount)
@@ -202,7 +206,9 @@ class slurm (
 
   validate_array($service_ulimits, $partitionlist, $cgroup_allowed_devices)
 
-  validate_hash($slurm_conf_override, $slurmdbd_conf_override, $spank_plugins)
+  validate_hash($slurm_conf_override)
+  validate_hash($slurmdbd_conf_override)
+  validate_hash($spank_plugins)
 
   if $node and $controller {
     fail("Module ${module_name}: Does not support both node and controller being enabled on the same host.")
@@ -256,8 +262,13 @@ class slurm (
       $slurmdbd_conf_release_defaults = $slurm::params::slurmdbd_conf_defaults['16.05']
       $partition_keys                 = $slurm::params::partition_keys['16.05']
     }
+    '17.02': {
+      $slurm_conf_release_defaults    = $slurm::params::slurm_conf_defaults['17.02']
+      $slurmdbd_conf_release_defaults = $slurm::params::slurmdbd_conf_defaults['17.02']
+      $partition_keys                 = $slurm::params::partition_keys['17.02']
+    }
     default: {
-      fail("Module ${module_name} only supports release 14.03, 14.11, 15.08, and 16.05 ${release} given.")
+      fail("Module ${module_name} only supports release 14.03, 14.11, 15.08, 16.05, 17.02 ${release} given.")
     }
   }
 
@@ -265,6 +276,7 @@ class slurm (
     $_slurmctld_log_file = 'UNSET'
     $_slurmdbd_log_file = 'UNSET'
     $_slurmd_log_file = 'UNSET'
+    $_logrotate_slurm_prerotate = pick($logrotate_slurm_prerotate, $slurm::params::logrotate_slurm_prerotate)
     $_logrotate_slurm_postrotate = pick($logrotate_slurm_postrotate, $slurm::params::logrotate_syslog_postrotate)
     $_logrotate_slurmdbd_postrotate = pick($logrotate_slurmdbd_postrotate, $slurm::params::logrotate_syslog_postrotate)
   } else {
@@ -272,6 +284,8 @@ class slurm (
     $_slurmdbd_log_file = $slurmdbd_log_file
     $_slurmd_log_file = $slurmd_log_file
     $_logrotate_slurm_postrotate = pick($logrotate_slurm_postrotate, $slurm::params::logrotate_slurm_postrotate)
+    $_logrotate_slurmctld_postrotate = pick($logrotate_slurmctld_postrotate, $slurm::params::logrotate_slurmctld_postrotate)
+    $_logrotate_slurm_prerotate = pick($logrotate_slurm_prerotate, $slurm::params::logrotate_slurm_prerotate)
     $_logrotate_slurmdbd_postrotate = pick($logrotate_slurmdbd_postrotate, $slurm::params::logrotate_slurmdbd_postrotate)
   }
 
@@ -350,33 +364,33 @@ class slurm (
   if $node {
     include slurm::node
 
-    Anchor['slurm::start']->
-    Class['slurm::node']->
-    Anchor['slurm::end']
+    Anchor['slurm::start']
+    -> Class['slurm::node']
+    -> Anchor['slurm::end']
   }
 
   if $controller {
     include slurm::controller
 
-    Anchor['slurm::start']->
-    Class['slurm::controller']->
-    Anchor['slurm::end']
+    Anchor['slurm::start']
+    -> Class['slurm::controller']
+    -> Anchor['slurm::end']
   }
 
   if $slurmdbd {
     include slurm::slurmdbd
 
-    Anchor['slurm::start']->
-    Class['slurm::slurmdbd']->
-    Anchor['slurm::end']
+    Anchor['slurm::start']
+    -> Class['slurm::slurmdbd']
+    -> Anchor['slurm::end']
   }
 
   if $client {
     include slurm::client
 
-    Anchor['slurm::start']->
-    Class['slurm::client']->
-    Anchor['slurm::end']
+    Anchor['slurm::start']
+    -> Class['slurm::client']
+    -> Anchor['slurm::end']
   }
 
 }
